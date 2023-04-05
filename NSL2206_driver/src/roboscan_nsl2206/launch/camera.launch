@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="ns" default="roboscan_nsl2206"/>
+  <arg name="nn" default="camera"/>
+  <arg name="respawn" default="false"/>
+  <arg name="stream" default="distance"/>
+  <!--<arg name="integrationTimeTOF1"  default="2000"/>
+  <arg name="integrationTimeTOF2"  default="0"/>
+  <arg name="integrationTimeTOF3"  default="0"/>
+  <arg name="integrationTimeTOF4"  default="0"/>
+  <arg name="integrationTimeGray" default="10000"/>
+  <arg name="kalmanFactor"   default="1000"/>
+  <arg name="kalmanThreshold" default="300"/>
+  <arg name="averageFilter" default="false"/>
+  <arg name="minAmplitude" default="100"/>
+  <arg name="offsetDistance" default="0"/>
+  <arg name="imageType" default="0"/>
+  <arg name="mode" default="0"/>
+  <arg name="roi_leftX" default="0"/>
+  <arg name="roi_topY" default="0"/>
+  <arg name="roi_rightX" default="159"/>
+  <arg name="roi_bottomY" default="59"/>  -->
+
+
+  <group ns="$(arg ns)">
+    <node pkg="roboscan_nsl2206"
+          type="roboscan_publish_node"
+          name="$(arg nn)"
+          output="screen"
+          respawn="$(arg respawn)">
+
+<!--  <param name="stream" value="$(arg stream)"/>
+      <param name="integrationTimeTOF1" value="$(arg integrationTimeTOF1)"/>
+      <param name="integrationTimeTOF2" value="$(arg integrationTimeTOF2)"/>
+      <param name="integrationTimeTOF3" value="$(arg integrationTimeTOF3)"/>
+      <param name="integrationTimeTOF4" value="$(arg integrationTimeTOF4)"/>
+      <param name="integrationTimeGray" value="$(arg integrationTimeGray)"/>
+      <param name="kalmanFactor" value="$(arg kalmanFactor)"/>
+      <param name="kalmanThreshold" value="$(arg kalmanThreshold)"/>
+      <param name="averageFilter" value="$(arg averageFilter)"/>
+      <param name="minAmplitude" value="$(arg minAmplitude)"/>
+      <param name="offsetDistance" value="$(arg offsetDistance)"/>
+      <param name="imageType"   value="$(arg imageType)"/>
+      <param name="mode"        value="$(arg mode)"/>
+      <param name="roi_leftX"   value="$(arg roi_leftX)"/>
+      <param name="roi_topY"    value="$(arg roi_topY)"/>
+      <param name="roi_rightX"  value="$(arg roi_rightX)"/>
+      <param name="roi_bottomY" value="$(arg roi_bottomY)"/>  -->
+
+      <remap from="image_raw" to="$(arg nn)/image_raw"/> 
+      <remap from="camera_info" to="$(arg nn)/camera_info"/> 
+      <remap from="set_camera_info" to="$(arg nn)/set_camera_info"/> 
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" required = "true" args="-d $(find roboscan_nsl2206)/rviz/roboscan_nsl2206rviz.rviz"> </node>
+    <node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure"> </node>
+
+  </group>
+</launch>
