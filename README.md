@@ -2,9 +2,9 @@
 --- NSL-2206AA ROS1 demo ---
 
 1. Build env
- - Ubuntu18.04
- - ROS1 Melodic
- - OPENCV 4.5.4
+ - Ubuntu18.04, ROS Melodic , OPENCV 4.1.1
+ - Ubuntu20.04, ROS Noetic, OPENCV 4.1.1
+ 
  
  
 2. Build NSL-2206AA demo

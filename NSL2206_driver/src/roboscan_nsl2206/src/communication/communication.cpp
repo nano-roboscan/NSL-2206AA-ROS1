@@ -270,15 +270,19 @@ ErrorNumber_e Communication::sendCommand(uint8_t *data, int size)
   serialConnection->rxArray.clear();
 
   for(int n= 0; n < size; n+= sz){
-      sz = serialConnection->readRxData(size, false);
-      if(sz == -1){
-	  	serialConnection->processRemainData(size);
-        return ERROR_NUMBER_SERIAL_PORT_ERROR;
+      sz = serialConnection->readRxData(size, true);
+      if(sz == -1){		
+	  printf("Communication::sendCommand serialConnection->readRxData sz=-1 count = %d ", count);
+      //serialConnection->processRemainData(size);
+	    return ERROR_NUMBER_SERIAL_PORT_ERROR;
       }else{
          count += sz;
       }
   }
-  serialConnection->processRemainData(size);
+    if( serialConnection->rxArray.size() > 0) serialConnection->processData(serialConnection->rxArray, size);
+	else{
+	  printf("arr zero ~~\n");
+	}
   return ERROR_NUMMBER_NO_ERROR;
 }
 
@@ -315,6 +319,7 @@ ErrorNumber_e Communication::sendCommandWithoutData(const uint8_t command, int s
  */
 ErrorNumber_e Communication::sendCommandSingleByte(const uint8_t command, const uint8_t payload, const bool blocking)
 {
+  std::ignore = blocking;
   uint8_t output[CommunicationConstants::Command::SIZE_TOTAL];
 
   memset(output, 0, sizeof(output));
@@ -340,6 +345,7 @@ ErrorNumber_e Communication::sendCommandSingleByte(const uint8_t command, const 
  */
 ErrorNumber_e Communication::sendCommandUint16(const uint8_t command, const uint16_t payload, const bool blocking)
 {
+  std::ignore = blocking;
   uint8_t output[CommunicationConstants::Command::SIZE_TOTAL];
 
   memset(output, 0, sizeof(output));
@@ -366,6 +372,7 @@ ErrorNumber_e Communication::sendCommandUint16(const uint8_t command, const uint
  */
 ErrorNumber_e Communication::sendCommandInt16(const uint8_t command, const int16_t payload, bool blocking)
 {
+  std::ignore = blocking;
   uint8_t output[CommunicationConstants::Command::SIZE_TOTAL];
 
   memset(output, 0, sizeof(output));
@@ -394,6 +401,7 @@ ErrorNumber_e Communication::sendCommandInt16(const uint8_t command, const int16
  */
 ErrorNumber_e Communication::sendCommand2xUint16(const uint8_t command, const uint16_t payload0, const uint16_t payload1, const bool blocking)
 {
+  std::ignore = blocking;
   uint8_t output[CommunicationConstants::Command::SIZE_TOTAL];
 
   memset(output, 0, sizeof(output));
@@ -561,10 +569,7 @@ void Communication::onReceivedData(const std::vector<uint8_t> &array, const uint
   //Stop the timeout timer
   //timeoutTimer->stop();
 
-  if(array.size()>3)
-    ROS_DEBUG("Communication::onReceivedData: d0= %d, d1= %d, d2= %d, d3= %d, ...,  type= %d", array[0], array[1], array[2], array[3], type);
-  else ROS_DEBUG("Communication::onReceivedData size= %d  type= %d", (int)array.size(),  type);
-
+  
   switch(type)
   {
     case CommunicationConstants::Type::DATA_ACK:
@@ -940,7 +945,7 @@ ErrorNumber_e Communication::getProductionInfo(unsigned int &year, unsigned int 
 
 void Communication::getDistanceGrayscale()
 {
-    int dataSize = 3 * (xMax_ - xMin_ + 1) * (yMax_ - yMin_ + 1) + 80; //16 bit distance + 8 bit grayscale
+    int dataSize = 3 * (xMax_ - xMin_ + 1) * (yMax_ - yMin_ + 1) + 80 + CommunicationConstants::Command::SIZE_PAYLOAD; //16 bit distance + 8 bit grayscale
     sendCommandWithoutData(CommunicationConstants::CommandList::COMMAND_GET_DISTANCE_GRAYSCALE, dataSize);
 }
 
@@ -951,7 +956,7 @@ void Communication::getDistanceGrayscale()
  */
 void Communication::getDistanceAmplitude()
 {
-  int dataSize = 4 * (xMax_ - xMin_ + 1) * (yMax_ - yMin_ + 1) + 80; //16 bit distance + 16 bit amplitude
+  int dataSize = 4 * (xMax_ - xMin_ + 1) * (yMax_ - yMin_ + 1) + 80  + CommunicationConstants::Command::SIZE_PAYLOAD; //16 bit distance + 16 bit amplitude
   
   sendCommandWithoutData(CommunicationConstants::CommandList::COMMAND_GET_DISTANCE_AMPLITUDE, dataSize);
 }
@@ -963,7 +968,7 @@ void Communication::getDistanceAmplitude()
  */
 void Communication::getDistance()
 {
-  int dataSize = 2 * (xMax_ - xMin_ + 1) * (yMax_ - yMin_ + 1) + 80; //16 bit distance
+  int dataSize = 2 * (xMax_ - xMin_ + 1) * (yMax_ - yMin_ + 1) + 80 + CommunicationConstants::Command::SIZE_PAYLOAD; //16 bit distance
   sendCommandWithoutData(CommunicationConstants::CommandList::COMMAND_GET_DISTANCE, dataSize);
 }
 
@@ -1132,13 +1137,14 @@ ErrorNumber_e Communication::setDcsFilter(const bool enabled)
  */
 ErrorNumber_e Communication::setGaussianFilter(const bool enabled)
 {
-  uint8_t value = 0;
+  std::ignore = enabled;
+  //uint8_t value = 0;
 
   //bool to 0/1
-  if (enabled)
-  {
-    value = 1;
-  }
+  //if (enabled)
+  //{
+  //  value = 1;
+  //}
 
   //sendCommandSingleByte(CommunicationConstants::CommandList::COMMAND_SET_GAUSSIAN_FILTER, value, CommunicationConstants::Type::DATA_ACK, false);
   return ErrorNumber_e::ERROR_NUMMBER_NO_ERROR;
@@ -1245,7 +1251,7 @@ ErrorNumber_e Communication::setMinimalAmplitude(const unsigned index, const uns
   //Add the amplitude
   Util::setUint16LittleEndian(output, CommunicationConstants::Amplitude::INDEX_AMPLITUDE, amplitude);
 
-  sendCommand(output, CommunicationConstants::Command::SIZE_PAYLOAD);
+  return sendCommand(output, CommunicationConstants::Command::SIZE_PAYLOAD);
 }
 
 ErrorNumber_e Communication::setBinning(const int binning){

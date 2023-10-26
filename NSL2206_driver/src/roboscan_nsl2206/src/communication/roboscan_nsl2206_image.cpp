@@ -324,7 +324,7 @@ unsigned int Nsl2206Image::getAmplitudeLimit(int index) const
     case 3: return amplitudeLimit3;
     case 4: return amplitudeLimit4;
   }
-
+  return amplitudeLimit0;
 }
 
 int Nsl2206Image::getOffset() const

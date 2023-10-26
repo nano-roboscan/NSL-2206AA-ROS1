@@ -4,7 +4,7 @@
 #include "crc_calc.h"
 #include "util.h"
 
-#include <stropts.h>
+//#include <stropts.h>
 #include <termios.h>
 //#include <asm/termios.h>
 
@@ -94,7 +94,7 @@ bool SerialConnection::openPort()
 	}
 
     set_interface_attribs(B4000000, 0);  // set speed to 10000000 bps, 8n1 (no parity)
-    set_blocking (1);                    // set no blocking
+    //set_blocking (1);                    // set no blocking
     rxArray.clear();
     return true;
 }
@@ -131,7 +131,7 @@ bool SerialConnection::checksumIsCorrect(const vector<uint8_t> &array, const uns
     return true;
   }
 
-  printf("SerialConnection::checksumIsCorrect ERROR!!!");
+  printf("SerialConnection::checksumIsCorrect ERROR!!!\n");
   return false;
 }
 
@@ -162,16 +162,16 @@ ssize_t SerialConnection::sendData(uint8_t *data)
     Util::setUint32LittleEndian(data, (CommunicationConstants::Command::SIZE_TOTAL - sizeof(uint32_t)), crc);
 
     //This is just to print out the data
+	/*
     std::string str= "SEND DATA: ";
     char buf[4];
     for(int i=0; i<14; i++){
         sprintf(buf, "%x ", data[i]);
         str.append(buf);
     }
-
-    ROS_DEBUG_STREAM(str);
-
-
+	*/
+    //ROS_DEBUG_STREAM(str);
+	
 
 
     return write(fileDescription, (uint8_t *)(data), CommunicationConstants::Command::SIZE_TOTAL);
@@ -208,59 +208,55 @@ uint8_t SerialConnection::getType(const vector<uint8_t> &array)
  */
 int SerialConnection::readRxData(int size, bool reMain)
 {  
-  uint8_t buf[50000] = {0};
+  std::ignore = reMain;
+  static uint8_t buf[50000] = {0};
   int n = read(fileDescription, buf, size);
 
-  if(n == -1 && reMain == false ){
+  if(n == -1 ){
     printf("Error on  SerialConnection::readRxData\n");
     return -1;
   }
-  else if( reMain ){
-	//printf("read n = %d rxArray = %lu\n", n, rxArray.size());
-  }
+
   
   if( n > 0 ) rxArray.insert(std::end(rxArray), buf, buf + n); //Append the new data to the rxArray buffer
-  processData(rxArray, size);
+  //processData(rxArray, size);
   return n;
 }
 
-void SerialConnection::processRemainData(int rxSize)
+bool SerialConnection::processRemainData(int rxSize)
 {
-	int rxRemainSize;
-	if( rxArray.size() == 0 ) return ;
-	//printf("processRemainData :: size ==> %lu rxSize = %d\n", rxArray.size(), rxSize);
+    static uint8_t buf[4096];
+	
+    int n = 0;
 
-//	if(rxArray.size() > 0 ){
-//		for(int i = 0;i<rxArray.size()&& i<20;i++){
-//			printf("array.at(%d) = %x\n", i, rxArray.at(i));
-//		}
-//	}
+    for(int i=0; i< rxSize; i+=n)
+    {
+        memset(buf, 0, sizeof(buf)); //clear buffer
 
-    bool bProcessData = false;
-	if( rxArray.size() >= 4 ){
-		//Get the expexted size
-	    expectedSize = getExpextedSize(rxArray);
+        int buf_size = rxSize;
+        if(buf_size > sizeof(buf))
+            buf_size = sizeof(buf);
 
-		if( expectedSize + CommunicationConstants::Data::SIZE_OVERHEAD == rxArray.size() ){
-			processData(rxArray, rxSize);
+        n = read(fileDescription, buf, buf_size);
 
-			bProcessData = true;
+        if(n > 0){                        
+         rxArray.insert(std::end(rxArray), buf, buf + n); //Append the new data to the rxArray buffer
+
+        }else if(n == -1){
+            printf("Error on  SerialConnection::readRxData= -1");
+            throw 6;
+
+        }else if(n == 0 && i < rxSize-1){
+
+            printf("serialConnection->readRxData %d bytes from %d received\n", i, rxSize);
+			
+ 
+            return true;
 		}
 	}
-
-	if( !bProcessData )
-	{
-		set_blocking (0);					 // set no blocking
-		do{
-			rxRemainSize = rxArray.size();
-			readRxData(rxSize, true);
-		}while(rxArray.size() > 0 && rxRemainSize != rxArray.size());
-		set_blocking (1);					 // set no blocking
-	}
-	
-
-	//printf("end processRemainData()\n");
-}
+	if( rxArray.size() > 0) processData(rxArray, rxSize);
+   	return true;
+ }
 
 /**
  * @brief Process the received data
@@ -308,13 +304,14 @@ bool SerialConnection::processData(std::vector<uint8_t> &array, int rxSize)
         sigReceivedData(array, type);
 		array.erase(array.begin(), array.begin() + expectedSize );
 		if( (type < 3 || type > 8) ){
-			//if( array.size() > 0 ) printf("after size = %lu rxSize = %d at(0) = %x\n", array.size(), rxSize, array.at(0));
+			if( array.size() > 0 ) printf("after size = %lu rxSize = %d at(0) = %x\n", array.size(), rxSize, array.at(0));
 		}
 
 		return true;
     }else{
         printf("-------- >>>> corrupted data <<< ---------\n");
-        array.erase(array.begin(), array.begin() + 1);
+        //array.erase(array.begin(), array.begin() + 1);
+		array.clear();
     }
 
   //array.clear();
@@ -357,26 +354,30 @@ int SerialConnection::set_interface_attribs(int speed, int parity)
   cfsetospeed (&tty, speed);
   cfsetispeed (&tty, speed);
 
-  tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
-  // disable IGNBRK for mismatched speed tests; otherwise receive break
-  // as \000 chars
-  tty.c_iflag &= ~IGNBRK;         // disable break processing
-  tty.c_lflag = 0;                // no signaling chars, no echo,
-  // no canonical processing
-  tty.c_oflag = 0;                // no remapping, no delays
-  tty.c_cc[VMIN]  = 0;            // read doesn't block
-  tty.c_cc[VTIME] = 10;            // 0.5 seconds read timeout
 
+  tty.c_oflag = 0;				  // no remapping, no delays
+  tty.c_oflag &= ~(ONLCR | OCRNL); //TODO...
+  
+  tty.c_lflag = 0;				  // no signaling chars, no echo,
+  tty.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN); //TODO...
+  
+  tty.c_iflag &= ~IGNBRK;		  // disable break processing
   tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
-  tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
-  // enable reading
-  tty.c_cflag &= ~(PARENB | PARODD);      // shut off parity
-  tty.c_cflag |= parity;
-  tty.c_cflag &= ~CSTOPB;
-  tty.c_cflag &= ~CRTSCTS;
+  tty.c_iflag &= ~(INLCR | IGNCR | ICRNL); //TODO...
+  
+  tty.c_cc[VMIN]  = 0;			  // non-blocking read
+  tty.c_cc[VTIME] = 1; 		   // 1 second read timeout
+    
+  tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;	  // 8-bit chars				
+  tty.c_cflag &= ~(PARENB | PARODD);  // shut off parity
+  tty.c_cflag &= ~CSTOPB;	 //one stop bit
+  tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls	 
+  tty.c_cflag |= CRTSCTS;	//data DTR hardware control do not use it
+  
+  tcflush(fileDescription, TCIOFLUSH);
 
   if (tcsetattr (fileDescription, TCSANOW, &tty) != 0){
-      ROS_ERROR("Error %d from tcsetattr", errno);
+      printf("Error %d from tcsetattr\n", errno);
       return -1;
   }
 

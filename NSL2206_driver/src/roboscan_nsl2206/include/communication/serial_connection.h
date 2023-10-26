@@ -83,7 +83,7 @@ public:
 
     std::vector<uint8_t> rxArray;
     bool processData(std::vector<uint8_t> &array, int rxSize);
-	void processRemainData(int rxSize);
+	bool processRemainData(int rxSize);
 	
 
   private:
