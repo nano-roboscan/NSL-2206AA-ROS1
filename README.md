@@ -34,17 +34,3 @@ $ rqt
 
 ![rqt](https://user-images.githubusercontent.com/106071093/230008611-651e479b-a96c-451e-b929-d34aeeb9be2c.png)
 
-
-
-```
-
-//
-```
-
- 
-
-
-
- 
- 
- 
