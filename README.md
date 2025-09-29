@@ -9,14 +9,14 @@
  
 2. Build NSL-2206AA demo
 ```
-$ cd NSL2206_driver
+$ git clone --recurse-submodules https://github.com/nano-roboscan/NSL-2206AA-ROS1.git
+$ cd NSL-2206AA-ROS1/NSL2206_driver
 $ catkin_make
 $ source ./devel/setup.bash
 ```
  
 3. Start commands
 ```
-$ rosrun roboscan_nsl2206 roboscan_publish_node
 $ roslaunch roboscan_nsl2206 camera.Launch
 ```
 
