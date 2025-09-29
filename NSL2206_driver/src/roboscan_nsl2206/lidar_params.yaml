@@ -1,0 +1,7 @@
+DevName: /dev/ttyNsl2206
+FrameID: roboscan_frame
+MaxDistance: 15000
+PointColud EDGE: 200
+ImageType: DISTANCE_AMPLITUDE
+LidarAngleV: 0
+LidarAngleH: 0
