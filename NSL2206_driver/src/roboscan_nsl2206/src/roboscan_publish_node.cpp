@@ -30,8 +30,6 @@ using namespace cv;
 using namespace std;
 
 #define WIN_NAME "NSL-2206AA IMAGE"
-#define MAX_LEVELS  9
-#define NUM_COLORS     		30000
 
 #define DISTANCE_INFO_HEIGHT	80
 #define VIEWER_SCALE_SIZE		4
@@ -197,11 +195,11 @@ void roboscanPublisher::dynamicReconfigureCallback(roboscan_nsl2206::RoboscanNSL
     nslConfig.minAmplitude[2]          = config.min_amplitude2;
     nslConfig.minAmplitude[3]          = config.min_amplitude3;
 
-    if (config.mod_index >= 0 && config.mod_index <= 3) {
-        nslConfig.mod_frequencyOpt = static_cast<NslOption::MODULATION_OPTIONS>(config.mod_index);
+    if (config.modulation_frequency >= 0 && config.modulation_frequency <= 1) {
+        nslConfig.mod_frequencyOpt = static_cast<NslOption::MODULATION_OPTIONS>(config.modulation_frequency);
     }
-    if (config.channel >= 0 && config.channel <= 15) {
-        nslConfig.mod_channelOpt = static_cast<NslOption::MODULATION_CH_OPTIONS>(config.channel);
+    if (config.modulation_channel >= 0 && config.modulation_channel <= 15) {
+        nslConfig.mod_channelOpt = static_cast<NslOption::MODULATION_CH_OPTIONS>(config.modulation_channel);
     }
     if (nslConfig.roiXMin != config.roi_left_x) {
         int x1_tmp = config.roi_left_x;
@@ -272,8 +270,8 @@ void roboscanPublisher::renewParameter()
 	cfg_for_gui.min_amplitude2 = nslConfig.minAmplitude[2];
 	cfg_for_gui.min_amplitude3 = nslConfig.minAmplitude[3];
 
-    cfg_for_gui.mod_index = static_cast<int>(nslConfig.mod_frequencyOpt);
-    cfg_for_gui.channel = static_cast<int>(nslConfig.mod_channelOpt);
+    cfg_for_gui.modulation_frequency = static_cast<int>(nslConfig.mod_frequencyOpt);
+    cfg_for_gui.modulation_channel = static_cast<int>(nslConfig.mod_channelOpt);
     cfg_for_gui.roi_left_x = nslConfig.roiXMin;
     cfg_for_gui.roi_top_y = nslConfig.roiYMin;
     cfg_for_gui.roi_right_x = nslConfig.roiXMax;
@@ -310,8 +308,8 @@ void roboscanPublisher::renewParameter()
     nh_.setParam("min_amplitude2",         nslConfig.minAmplitude[2]);
     nh_.setParam("min_amplitude3",         nslConfig.minAmplitude[3]);
 
-    nh_.setParam("mod_index",             static_cast<int>(nslConfig.mod_frequencyOpt));
-    nh_.setParam("channel",               static_cast<int>(nslConfig.mod_channelOpt));
+    nh_.setParam("modulation_frequency",             static_cast<int>(nslConfig.mod_frequencyOpt));
+    nh_.setParam("modulation_channel",               static_cast<int>(nslConfig.mod_channelOpt));
 
     nh_.setParam("roi_left_x",            nslConfig.roiXMin);
     nh_.setParam("roi_top_y",             nslConfig.roiYMin);
@@ -411,30 +409,59 @@ void roboscanPublisher::setWinName()
 	cv::setMouseCallback(winName, callback_mouse_click, NULL);
 }
 
+void roboscanPublisher::initNslLibrary()
+{
+	nslConfig.lidarAngleV = viewerParam.lidarAngleV;
+	nslConfig.lidarAngleH = viewerParam.lidarAngleH;
+	nsl_handle = nsl_open(viewerParam.devName.c_str(), &nslConfig, FUNCTION_OPTIONS::FUNC_ON);
+	if( nsl_handle < 0 ){
+		std::cout << "nsl_open::handle open error::" << nsl_handle << std::endl;
+		return;
+	}
+
+	nslConfig.medianOpt = NslOption::FUNCTION_OPTIONS::FUNC_ON;
+	nslConfig.gaussOpt = NslOption::FUNCTION_OPTIONS::FUNC_ON;
+	nslConfig.temporalFactorValue = 300;
+	nslConfig.temporalThresholdValue = 200;
+	nslConfig.edgeThresholdValue = 100;
+	nslConfig.interferenceDetectionLimitValue = 0;
+	nslConfig.interferenceDetectionLastValueOpt = NslOption::FUNCTION_OPTIONS::FUNC_ON;
+	
+	nsl_setFilter(nsl_handle, nslConfig.medianOpt, nslConfig.gaussOpt, nslConfig.temporalFactorValue, nslConfig.temporalThresholdValue, nslConfig.edgeThresholdValue, nslConfig.interferenceDetectionLimitValue, nslConfig.interferenceDetectionLastValueOpt);
+	nsl_set3DFilter(nsl_handle, viewerParam.pointCloudEdgeThreshold);
+	nsl_setColorRange(viewerParam.maxDistance, MAX_GRAYSCALE_VALUE, viewerParam.grayScale ? NslOption::FUNCTION_OPTIONS::FUNC_ON : NslOption::FUNCTION_OPTIONS::FUNC_OFF);
+
+	startStreaming();
+
+	ROS_INFO("end initNslLibrary() nsl_handle = %d\n", nsl_handle);
+}
+
 void roboscanPublisher::initialise()
 {
     std::cout<<"Init roboscan_nsl2206 node\n"<<std::endl;
 
     roboscan_nsl2206::RoboscanNSL2206Config cfg = roboscan_nsl2206::RoboscanNSL2206Config::__getDefault__();
-
+	viewerParam.saveParam = false;
+	viewerParam.frameCount = 0;
+	viewerParam.cvShow = false;
+	viewerParam.grayScale = false;
+	viewerParam.changedCvShow = true;
+	viewerParam.changedImageType = false;
+	viewerParam.reOpenLidar = false;
+	viewerParam.maxDistance = 15000;
+	viewerParam.pointCloudEdgeThreshold = 200;
+	viewerParam.imageType = 2;
+	viewerParam.lidarAngleV = 0;
+	viewerParam.lidarAngleH = 0;
+	viewerParam.frame_id = "roboscan_nsl2206_frame";
+	viewerParam.devName = "/dev/ttyNsl2206";
 
     load_params(cfg);
+	initNslLibrary();
 
-    ROS_INFO("Attempting to connect to device at IP: %s", viewerParam.devName.c_str());
-    nsl_handle = nsl_open(viewerParam.devName.c_str(), &nslConfig, NslOption::FUNCTION_OPTIONS::FUNC_ON);
     if (nsl_handle >= 0)
     {
         ROS_INFO("Successfully connected. Reading settings from the device.");
-
-		nsl_setMinAmplitude(nsl_handle, nslConfig.minAmplitude[0], nslConfig.minAmplitude[1], nslConfig.minAmplitude[2], nslConfig.minAmplitude[3]);
-		nsl_setIntegrationTime(nsl_handle, nslConfig.integrationTime3D[0], nslConfig.integrationTime3D[1], nslConfig.integrationTime3D[2], nslConfig.integrationTime3D[3], nslConfig.integrationTimeGrayScale);
-		nsl_setHdrMode(nsl_handle, nslConfig.hdrOpt);
-		nsl_setFilter(nsl_handle, nslConfig.medianOpt, nslConfig.gaussOpt, nslConfig.temporalFactorValue, nslConfig.temporalThresholdValue, nslConfig.edgeThresholdValue, nslConfig.interferenceDetectionLimitValue, nslConfig.interferenceDetectionLastValueOpt);
-		nsl_set3DFilter(nsl_handle, viewerParam.pointCloudEdgeThreshold);
-		nsl_setModulation(nsl_handle, nslConfig.mod_frequencyOpt, nslConfig.mod_channelOpt);
-		nsl_setRoi(nsl_handle, nslConfig.roiXMin, nslConfig.roiYMin, nslConfig.roiXMax, nslConfig.roiYMax);
-		nsl_setColorRange(viewerParam.maxDistance, MAX_GRAYSCALE_VALUE, NslOption::FUNCTION_OPTIONS::FUNC_OFF);
-		
         cfg.hdr_mode = static_cast<int>(nslConfig.hdrOpt);
         cfg.int_0 = nslConfig.integrationTime3D[0];
         cfg.int_1 = nslConfig.integrationTime3D[1];
@@ -445,8 +472,8 @@ void roboscanPublisher::initialise()
         cfg.min_amplitude1 = nslConfig.minAmplitude[1];
         cfg.min_amplitude2 = nslConfig.minAmplitude[2];
         cfg.min_amplitude3 = nslConfig.minAmplitude[3];
-        cfg.mod_index = static_cast<int>(nslConfig.mod_frequencyOpt);
-        cfg.channel = static_cast<int>(nslConfig.mod_channelOpt);
+        cfg.modulation_frequency = static_cast<int>(nslConfig.mod_frequencyOpt);
+        cfg.modulation_channel = static_cast<int>(nslConfig.mod_channelOpt);
         cfg.roi_left_x = nslConfig.roiXMin;
         cfg.roi_top_y = nslConfig.roiYMin;
         cfg.roi_right_x = nslConfig.roiXMax;
@@ -458,8 +485,6 @@ void roboscanPublisher::initialise()
         cfg.edge_filter_threshold = nslConfig.edgeThresholdValue;
         cfg.interference_detection_limit = nslConfig.interferenceDetectionLimitValue;
         cfg.use_last_value = (nslConfig.interferenceDetectionLastValueOpt == NslOption::FUNCTION_OPTIONS::FUNC_ON);
-
-		startStreaming();
     }
     else
     {
