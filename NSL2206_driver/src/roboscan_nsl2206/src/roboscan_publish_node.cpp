@@ -22,7 +22,8 @@
 #include <ros/package.h> 
 #include "roboscan_publish_node.hpp"
 #include <fstream>    
-#include <stdexcept> 
+#include <stdexcept>
+
 using namespace NslOption;
 using namespace nanosys;
 using namespace std::chrono_literals;
@@ -42,7 +43,7 @@ static void callback_mouse_click(int event, int x, int y, int flags, void* user_
 {
 	std::ignore = flags;
 	std::ignore = user_data;
-	
+
 	if (event == cv::EVENT_LBUTTONDOWN)
 	{
 		x_start = x;
@@ -57,15 +58,15 @@ static void callback_mouse_click(int event, int x, int y, int flags, void* user_
 }
 roboscanPublisher::roboscanPublisher() : nh_("~")
 {
-    ROS_INFO("start roboscanPublisher...\n");
-    ros::NodeHandle public_nh;
+	ROS_INFO("start roboscanPublisher...\n");
+	ros::NodeHandle public_nh;
 
-    it_.reset(new image_transport::ImageTransport(public_nh));
-    imgDistancePub = public_nh.advertise<sensor_msgs::Image>("roboscanDistance", 10);
-    imgAmplPub     = public_nh.advertise<sensor_msgs::Image>("roboscanAmpl", 10);
-    pointcloudPub  = public_nh.advertise<sensor_msgs::PointCloud2>("roboscanPointCloud", 10);
-    std::string pkg = ros::package::getPath("roboscan_nsl3130");
-    yaml_path_ = pkg + "/lidar_params.yaml";
+	it_.reset(new image_transport::ImageTransport(public_nh));
+	imgDistancePub = public_nh.advertise<sensor_msgs::Image>("roboscanDistance", 10);
+	imgAmplPub     = public_nh.advertise<sensor_msgs::Image>("roboscanAmpl", 10);
+	pointcloudPub  = public_nh.advertise<sensor_msgs::PointCloud2>("roboscanPointCloud", 10);
+	std::string pkg = ros::package::getPath("roboscan_nsl3130");
+	yaml_path_ = pkg + "/lidar_params.yaml";
 	dr_server_.reset(new dynamic_reconfigure::Server<roboscan_nsl2206::RoboscanNSL2206Config>(param_mutex_, nh_));
 	dr_server_->setCallback(boost::bind(&roboscanPublisher::dynamicReconfigureCallback, this, _1, _2));
 
@@ -73,10 +74,10 @@ roboscanPublisher::roboscanPublisher() : nh_("~")
 	mouseXpos = -1;
 	mouseYpos = -1;
 
-    runThread = true;
-    publisherThread.reset(new std::thread(&roboscanPublisher::threadCallback, this));
+	runThread = true;
+	publisherThread.reset(new std::thread(&roboscanPublisher::threadCallback, this));
 
-    ROS_INFO("\nRun rqt to view the image!\n");
+	ROS_INFO("\nRun rqt to view the image!\n");
 }
 
 
@@ -88,7 +89,7 @@ roboscanPublisher::~roboscanPublisher()
 
 	nsl_close();
 
-    ROS_INFO("\nEnd roboscanPublisher()!\n");
+	ROS_INFO("\nEnd roboscanPublisher()!\n");
 }
 
 
@@ -129,104 +130,104 @@ void roboscanPublisher::threadCallback()
 
 void roboscanPublisher::dynamicReconfigureCallback(roboscan_nsl2206::RoboscanNSL2206Config &config, uint32_t level)
 {
-    boost::recursive_mutex::scoped_lock lock(param_mutex_);
-    (void)level;
-    ROS_INFO("Reconfigure Request Received.");
+	boost::recursive_mutex::scoped_lock lock(param_mutex_);
+	(void)level;
+	ROS_INFO("Reconfigure Request Received.");
 
-    if (viewerParam.cvShow != config.cv_show) {
-        viewerParam.cvShow = config.cv_show;
-        viewerParam.changedCvShow = true; 
-    }
+	if (viewerParam.cvShow != config.cv_show) {
+		viewerParam.cvShow = config.cv_show;
+		viewerParam.changedCvShow = true; 
+	}
 
 	if (viewerParam.grayScale != config.grayScale )
 	{
 		viewerParam.grayScale = config.grayScale;
 	}
-	
-    if (viewerParam.devName != config.dev_name) {
-        ROS_INFO("Dev name changed from %s to %s", viewerParam.devName.c_str(), config.dev_name.c_str());
-        viewerParam.devName     = config.dev_name;
-        viewerParam.reOpenLidar = true;
-        viewerParam.saveParam   = true; 
-    }
 
-    if (viewerParam.imageType != config.image_type) {
+	if (viewerParam.devName != config.dev_name) {
+		ROS_INFO("Dev name changed from %s to %s", viewerParam.devName.c_str(), config.dev_name.c_str());
+		viewerParam.devName     = config.dev_name;
+		viewerParam.reOpenLidar = true;
+		viewerParam.saveParam   = true; 
+	}
+
+	if (viewerParam.imageType != config.image_type) {
 		if( config.image_type >= 1 && config.image_type <= 2 ){
 			viewerParam.imageType = config.image_type;
 			viewerParam.changedImageType = true;
 			viewerParam.saveParam = true;
 		}
-    }
-    if (viewerParam.frame_id != config.frame_id) {
-        ROS_INFO("changed to frame ID %s -> %s", viewerParam.frame_id.c_str(), config.frame_id.c_str());
+	}
+	if (viewerParam.frame_id != config.frame_id) {
+		ROS_INFO("changed to frame ID %s -> %s", viewerParam.frame_id.c_str(), config.frame_id.c_str());
 		if (config.frame_id.empty())
-	        viewerParam.frame_id = "roboscan_frame";
+			viewerParam.frame_id = "roboscan_frame";
 		else
-	        viewerParam.frame_id = config.frame_id;
-        viewerParam.saveParam = true; 
-    }
-    if (viewerParam.maxDistance != config.max_distance) {
-        viewerParam.maxDistance = config.max_distance;
-        viewerParam.saveParam   = true; 
-    }
-    if (viewerParam.pointCloudEdgeThreshold != config.pointcloud_edge) {
-        viewerParam.pointCloudEdgeThreshold = config.pointcloud_edge;
-        viewerParam.saveParam               = true; 
-    }
-    if (viewerParam.lidarAngleV != config.transform_angleV) {
-        viewerParam.lidarAngleV = config.transform_angleV;
-        viewerParam.saveParam  = true; 
-    }
-    if (viewerParam.lidarAngleH != config.transform_angleH) {
-        viewerParam.lidarAngleH = config.transform_angleH;
-        viewerParam.saveParam  = true; 
-    }
-    if (config.hdr_mode >= 0 && config.hdr_mode <= 2) {
-        nslConfig.hdrOpt = static_cast<NslOption::HDR_OPTIONS>(config.hdr_mode);
-    }
+			viewerParam.frame_id = config.frame_id;
+		viewerParam.saveParam = true; 
+	}
+	if (viewerParam.maxDistance != config.max_distance) {
+		viewerParam.maxDistance = config.max_distance;
+		viewerParam.saveParam   = true; 
+	}
+	if (viewerParam.pointCloudEdgeThreshold != config.pointcloud_edge) {
+		viewerParam.pointCloudEdgeThreshold = config.pointcloud_edge;
+		viewerParam.saveParam               = true; 
+	}
+	if (viewerParam.lidarAngleV != config.transform_angleV) {
+		viewerParam.lidarAngleV = config.transform_angleV;
+		viewerParam.saveParam  = true; 
+	}
+	if (viewerParam.lidarAngleH != config.transform_angleH) {
+		viewerParam.lidarAngleH = config.transform_angleH;
+		viewerParam.saveParam  = true; 
+	}
+	if (config.hdr_mode >= 0 && config.hdr_mode <= 2) {
+		nslConfig.hdrOpt = static_cast<NslOption::HDR_OPTIONS>(config.hdr_mode);
+	}
 
-    nslConfig.integrationTime3D[0]    = config.int_0;
-    nslConfig.integrationTime3D[1]    = config.int_1;
-    nslConfig.integrationTime3D[2]    = config.int_2;
-    nslConfig.integrationTime3D[3]    = config.int_3;
-    nslConfig.integrationTimeGrayScale = config.int_gr;
-    nslConfig.minAmplitude[0]          = config.min_amplitude0;
-    nslConfig.minAmplitude[1]          = config.min_amplitude1;
-    nslConfig.minAmplitude[2]          = config.min_amplitude2;
-    nslConfig.minAmplitude[3]          = config.min_amplitude3;
+	nslConfig.integrationTime3D[0]    = config.int_0;
+	nslConfig.integrationTime3D[1]    = config.int_1;
+	nslConfig.integrationTime3D[2]    = config.int_2;
+	nslConfig.integrationTime3D[3]    = config.int_3;
+	nslConfig.integrationTimeGrayScale = config.int_gr;
+	nslConfig.minAmplitude[0]          = config.min_amplitude0;
+	nslConfig.minAmplitude[1]          = config.min_amplitude1;
+	nslConfig.minAmplitude[2]          = config.min_amplitude2;
+	nslConfig.minAmplitude[3]          = config.min_amplitude3;
 
-    if (config.modulation_frequency >= 0 && config.modulation_frequency <= 1) {
-        nslConfig.mod_frequencyOpt = static_cast<NslOption::MODULATION_OPTIONS>(config.modulation_frequency);
-    }
-    if (config.modulation_channel >= 0 && config.modulation_channel <= 15) {
-        nslConfig.mod_channelOpt = static_cast<NslOption::MODULATION_CH_OPTIONS>(config.modulation_channel);
-    }
-    if (nslConfig.roiXMin != config.roi_left_x) {
-        int x1_tmp = config.roi_left_x;
-        nslConfig.roiXMin = x1_tmp;
-    }
-    if (nslConfig.roiXMax != config.roi_right_x) {
-        int x2_tmp = config.roi_right_x;
-        nslConfig.roiXMax = x2_tmp;
-    }
-    if (nslConfig.roiYMin != config.roi_top_y) {
-        int y1_tmp = config.roi_top_y;
-        nslConfig.roiYMin = y1_tmp;
-    }
-    if (nslConfig.roiYMax != config.roi_bottom_y) {
-        int y2_tmp = config.roi_bottom_y;
-        nslConfig.roiYMax = y2_tmp;
-    }
+	if (config.modulation_frequency >= 0 && config.modulation_frequency <= 1) {
+		nslConfig.mod_frequencyOpt = static_cast<NslOption::MODULATION_OPTIONS>(config.modulation_frequency);
+	}
+	if (config.modulation_channel >= 0 && config.modulation_channel <= 15) {
+		nslConfig.mod_channelOpt = static_cast<NslOption::MODULATION_CH_OPTIONS>(config.modulation_channel);
+	}
+	if (nslConfig.roiXMin != config.roi_left_x) {
+		int x1_tmp = config.roi_left_x;
+		nslConfig.roiXMin = x1_tmp;
+	}
+	if (nslConfig.roiXMax != config.roi_right_x) {
+		int x2_tmp = config.roi_right_x;
+		nslConfig.roiXMax = x2_tmp;
+	}
+	if (nslConfig.roiYMin != config.roi_top_y) {
+		int y1_tmp = config.roi_top_y;
+		nslConfig.roiYMin = y1_tmp;
+	}
+	if (nslConfig.roiYMax != config.roi_bottom_y) {
+		int y2_tmp = config.roi_bottom_y;
+		nslConfig.roiYMax = y2_tmp;
+	}
 
-    nslConfig.medianOpt                        = static_cast<NslOption::FUNCTION_OPTIONS>(config.median_filter);
-    nslConfig.gaussOpt                         = static_cast<NslOption::FUNCTION_OPTIONS>(config.gaussian_filter);
-    nslConfig.temporalFactorValue              = static_cast<int>(config.temporal_filter_factor * 1000);
-    nslConfig.temporalThresholdValue           = config.temporal_filter_threshold;
-    nslConfig.edgeThresholdValue               = config.edge_filter_threshold;
-    nslConfig.interferenceDetectionLimitValue  = config.interference_detection_limit;
-    nslConfig.interferenceDetectionLastValueOpt= static_cast<NslOption::FUNCTION_OPTIONS>(config.use_last_value);
+	nslConfig.medianOpt                        = static_cast<NslOption::FUNCTION_OPTIONS>(config.median_filter);
+	nslConfig.gaussOpt                         = static_cast<NslOption::FUNCTION_OPTIONS>(config.gaussian_filter);
+	nslConfig.temporalFactorValue              = static_cast<int>(config.temporal_filter_factor * 1000);
+	nslConfig.temporalThresholdValue           = config.temporal_filter_threshold;
+	nslConfig.edgeThresholdValue               = config.edge_filter_threshold;
+	nslConfig.interferenceDetectionLimitValue  = config.interference_detection_limit;
+	nslConfig.interferenceDetectionLastValueOpt= static_cast<NslOption::FUNCTION_OPTIONS>(config.use_last_value);
 
-    reconfigure = true;
+	reconfigure = true;
 }
 
 
@@ -247,19 +248,19 @@ void roboscanPublisher::timeDelay(int milli)
 
 void roboscanPublisher::renewParameter()
 {
-    roboscan_nsl2206::RoboscanNSL2206Config cfg_for_gui;
-	
-    cfg_for_gui.dev_name = viewerParam.devName;
-    cfg_for_gui.cv_show = viewerParam.cvShow;
-    cfg_for_gui.grayScale = viewerParam.grayScale;
-    cfg_for_gui.frame_id = viewerParam.frame_id;
-    cfg_for_gui.image_type = viewerParam.imageType;
-    cfg_for_gui.transform_angleV = viewerParam.lidarAngleV;
-    cfg_for_gui.transform_angleH = viewerParam.lidarAngleH;
-    cfg_for_gui.pointcloud_edge = viewerParam.pointCloudEdgeThreshold;
-    cfg_for_gui.max_distance = viewerParam.maxDistance;
+	roboscan_nsl2206::RoboscanNSL2206Config cfg_for_gui;
 
-    cfg_for_gui.hdr_mode = static_cast<int>(nslConfig.hdrOpt);
+	cfg_for_gui.dev_name = viewerParam.devName;
+	cfg_for_gui.cv_show = viewerParam.cvShow;
+	cfg_for_gui.grayScale = viewerParam.grayScale;
+	cfg_for_gui.frame_id = viewerParam.frame_id;
+	cfg_for_gui.image_type = viewerParam.imageType;
+	cfg_for_gui.transform_angleV = viewerParam.lidarAngleV;
+	cfg_for_gui.transform_angleH = viewerParam.lidarAngleH;
+	cfg_for_gui.pointcloud_edge = viewerParam.pointCloudEdgeThreshold;
+	cfg_for_gui.max_distance = viewerParam.maxDistance;
+
+	cfg_for_gui.hdr_mode = static_cast<int>(nslConfig.hdrOpt);
 	cfg_for_gui.int_0 = nslConfig.integrationTime3D[0];
 	cfg_for_gui.int_1 = nslConfig.integrationTime3D[1];
 	cfg_for_gui.int_2 = nslConfig.integrationTime3D[2];
@@ -270,68 +271,68 @@ void roboscanPublisher::renewParameter()
 	cfg_for_gui.min_amplitude2 = nslConfig.minAmplitude[2];
 	cfg_for_gui.min_amplitude3 = nslConfig.minAmplitude[3];
 
-    cfg_for_gui.modulation_frequency = static_cast<int>(nslConfig.mod_frequencyOpt);
-    cfg_for_gui.modulation_channel = static_cast<int>(nslConfig.mod_channelOpt);
-    cfg_for_gui.roi_left_x = nslConfig.roiXMin;
-    cfg_for_gui.roi_top_y = nslConfig.roiYMin;
-    cfg_for_gui.roi_right_x = nslConfig.roiXMax;
-    cfg_for_gui.roi_bottom_y = nslConfig.roiYMax;
-    cfg_for_gui.median_filter = static_cast<bool>(nslConfig.medianOpt);
-    cfg_for_gui.gaussian_filter = static_cast<bool>(nslConfig.gaussOpt);
-    cfg_for_gui.temporal_filter_factor = nslConfig.temporalFactorValue / 1000.0;
-    cfg_for_gui.temporal_filter_threshold = nslConfig.temporalThresholdValue;
-    cfg_for_gui.edge_filter_threshold = nslConfig.edgeThresholdValue;
-    cfg_for_gui.interference_detection_limit = nslConfig.interferenceDetectionLimitValue;
-    cfg_for_gui.use_last_value = static_cast<bool>(nslConfig.interferenceDetectionLastValueOpt);
-	
-    if (dr_server_) { 
-        dr_server_->updateConfig(cfg_for_gui);
-    }
-	
-	
-    nh_.setParam("dev_name",               viewerParam.devName);
-    nh_.setParam("cv_show",               viewerParam.cvShow);
-    nh_.setParam("grayScale",               viewerParam.grayScale);
-    nh_.setParam("frame_id",              viewerParam.frame_id);
+	cfg_for_gui.modulation_frequency = static_cast<int>(nslConfig.mod_frequencyOpt);
+	cfg_for_gui.modulation_channel = static_cast<int>(nslConfig.mod_channelOpt);
+	cfg_for_gui.roi_left_x = nslConfig.roiXMin;
+	cfg_for_gui.roi_top_y = nslConfig.roiYMin;
+	cfg_for_gui.roi_right_x = nslConfig.roiXMax;
+	cfg_for_gui.roi_bottom_y = nslConfig.roiYMax;
+	cfg_for_gui.median_filter = static_cast<bool>(nslConfig.medianOpt);
+	cfg_for_gui.gaussian_filter = static_cast<bool>(nslConfig.gaussOpt);
+	cfg_for_gui.temporal_filter_factor = nslConfig.temporalFactorValue / 1000.0;
+	cfg_for_gui.temporal_filter_threshold = nslConfig.temporalThresholdValue;
+	cfg_for_gui.edge_filter_threshold = nslConfig.edgeThresholdValue;
+	cfg_for_gui.interference_detection_limit = nslConfig.interferenceDetectionLimitValue;
+	cfg_for_gui.use_last_value = static_cast<bool>(nslConfig.interferenceDetectionLastValueOpt);
 
-    nh_.setParam("image_type",            viewerParam.imageType);
-    nh_.setParam("hdr_mode",              static_cast<int>(nslConfig.hdrOpt));
+	if (dr_server_) { 
+		dr_server_->updateConfig(cfg_for_gui);
+	}
 
-    nh_.setParam("int_0",                 nslConfig.integrationTime3D[0]);
-    nh_.setParam("int_1",                 nslConfig.integrationTime3D[1]);
-    nh_.setParam("int_2",                 nslConfig.integrationTime3D[2]);
-    nh_.setParam("int_3",                 nslConfig.integrationTime3D[3]);
-    nh_.setParam("int_gr",                nslConfig.integrationTimeGrayScale);
 
-    nh_.setParam("min_amplitude0",         nslConfig.minAmplitude[0]);
-    nh_.setParam("min_amplitude1",         nslConfig.minAmplitude[1]);
-    nh_.setParam("min_amplitude2",         nslConfig.minAmplitude[2]);
-    nh_.setParam("min_amplitude3",         nslConfig.minAmplitude[3]);
+	nh_.setParam("dev_name",               viewerParam.devName);
+	nh_.setParam("cv_show",               viewerParam.cvShow);
+	nh_.setParam("grayScale",               viewerParam.grayScale);
+	nh_.setParam("frame_id",              viewerParam.frame_id);
 
-    nh_.setParam("modulation_frequency",             static_cast<int>(nslConfig.mod_frequencyOpt));
-    nh_.setParam("modulation_channel",               static_cast<int>(nslConfig.mod_channelOpt));
+	nh_.setParam("image_type",            viewerParam.imageType);
+	nh_.setParam("hdr_mode",              static_cast<int>(nslConfig.hdrOpt));
 
-    nh_.setParam("roi_left_x",            nslConfig.roiXMin);
-    nh_.setParam("roi_top_y",             nslConfig.roiYMin);
-    nh_.setParam("roi_right_x",           nslConfig.roiXMax);
-    nh_.setParam("roi_right_y",           nslConfig.roiYMax);
+	nh_.setParam("int_0",                 nslConfig.integrationTime3D[0]);
+	nh_.setParam("int_1",                 nslConfig.integrationTime3D[1]);
+	nh_.setParam("int_2",                 nslConfig.integrationTime3D[2]);
+	nh_.setParam("int_3",                 nslConfig.integrationTime3D[3]);
+	nh_.setParam("int_gr",                nslConfig.integrationTimeGrayScale);
 
-    nh_.setParam("transform_angleV",       viewerParam.lidarAngleV);
-    nh_.setParam("transform_angleH",       viewerParam.lidarAngleH);
+	nh_.setParam("min_amplitude0",         nslConfig.minAmplitude[0]);
+	nh_.setParam("min_amplitude1",         nslConfig.minAmplitude[1]);
+	nh_.setParam("min_amplitude2",         nslConfig.minAmplitude[2]);
+	nh_.setParam("min_amplitude3",         nslConfig.minAmplitude[3]);
 
-    nh_.setParam("median_filter",         static_cast<bool>(nslConfig.medianOpt));
-    nh_.setParam("gaussian_filter",       static_cast<bool>(nslConfig.gaussOpt));
-    nh_.setParam("temporal_filter_factor",nslConfig.temporalFactorValue / 1000.0);
-    nh_.setParam("temporal_filter_threshold", nslConfig.temporalThresholdValue);
-    nh_.setParam("edge_filter_threshold", nslConfig.edgeThresholdValue);
+	nh_.setParam("modulation_frequency",             static_cast<int>(nslConfig.mod_frequencyOpt));
+	nh_.setParam("modulation_channel",               static_cast<int>(nslConfig.mod_channelOpt));
 
-    nh_.setParam("interference_detection_limit",  nslConfig.interferenceDetectionLimitValue);
-    nh_.setParam("use_last_value",        static_cast<bool>(nslConfig.interferenceDetectionLastValueOpt));
-    nh_.setParam("pointcloud_edge",       viewerParam.pointCloudEdgeThreshold);
-    nh_.setParam("max_distance",          viewerParam.maxDistance);
-	
+	nh_.setParam("roi_left_x",            nslConfig.roiXMin);
+	nh_.setParam("roi_top_y",             nslConfig.roiYMin);
+	nh_.setParam("roi_right_x",           nslConfig.roiXMax);
+	nh_.setParam("roi_right_y",           nslConfig.roiYMax);
 
-    ROS_INFO("[renewParameter]!!!");
+	nh_.setParam("transform_angleV",       viewerParam.lidarAngleV);
+	nh_.setParam("transform_angleH",       viewerParam.lidarAngleH);
+
+	nh_.setParam("median_filter",         static_cast<bool>(nslConfig.medianOpt));
+	nh_.setParam("gaussian_filter",       static_cast<bool>(nslConfig.gaussOpt));
+	nh_.setParam("temporal_filter_factor",nslConfig.temporalFactorValue / 1000.0);
+	nh_.setParam("temporal_filter_threshold", nslConfig.temporalThresholdValue);
+	nh_.setParam("edge_filter_threshold", nslConfig.edgeThresholdValue);
+
+	nh_.setParam("interference_detection_limit",  nslConfig.interferenceDetectionLimitValue);
+	nh_.setParam("use_last_value",        static_cast<bool>(nslConfig.interferenceDetectionLastValueOpt));
+	nh_.setParam("pointcloud_edge",       viewerParam.pointCloudEdgeThreshold);
+	nh_.setParam("max_distance",          viewerParam.maxDistance);
+
+
+	ROS_INFO("[renewParameter]!!!");
 }
 
 
@@ -423,9 +424,9 @@ void roboscanPublisher::initNslLibrary()
 	nslConfig.gaussOpt = NslOption::FUNCTION_OPTIONS::FUNC_ON;
 	nslConfig.temporalFactorValue = 300;
 	nslConfig.temporalThresholdValue = 200;
-	nslConfig.edgeThresholdValue = 100;
+	nslConfig.edgeThresholdValue = 200;
 	nslConfig.interferenceDetectionLimitValue = 0;
-	nslConfig.interferenceDetectionLastValueOpt = NslOption::FUNCTION_OPTIONS::FUNC_ON;
+	nslConfig.interferenceDetectionLastValueOpt = NslOption::FUNCTION_OPTIONS::FUNC_OFF;
 	
 	nsl_setFilter(nsl_handle, nslConfig.medianOpt, nslConfig.gaussOpt, nslConfig.temporalFactorValue, nslConfig.temporalThresholdValue, nslConfig.edgeThresholdValue, nslConfig.interferenceDetectionLimitValue, nslConfig.interferenceDetectionLastValueOpt);
 	nsl_set3DFilter(nsl_handle, viewerParam.pointCloudEdgeThreshold);
@@ -438,9 +439,9 @@ void roboscanPublisher::initNslLibrary()
 
 void roboscanPublisher::initialise()
 {
-    std::cout<<"Init roboscan_nsl2206 node\n"<<std::endl;
+	std::cout<<"Init roboscan_nsl2206 node\n"<<std::endl;
 
-    roboscan_nsl2206::RoboscanNSL2206Config cfg = roboscan_nsl2206::RoboscanNSL2206Config::__getDefault__();
+	roboscan_nsl2206::RoboscanNSL2206Config cfg = roboscan_nsl2206::RoboscanNSL2206Config::__getDefault__();
 	viewerParam.saveParam = false;
 	viewerParam.frameCount = 0;
 	viewerParam.cvShow = false;
@@ -455,61 +456,58 @@ void roboscanPublisher::initialise()
 	viewerParam.lidarAngleH = 0;
 	viewerParam.frame_id = "roboscan_nsl2206_frame";
 	viewerParam.devName = "/dev/ttyNsl2206";
+	reconfigure = false;
 
-    load_params(cfg);
+	load_params(cfg);
 	initNslLibrary();
 
-    if (nsl_handle >= 0)
-    {
-        ROS_INFO("Successfully connected. Reading settings from the device.");
-        cfg.hdr_mode = static_cast<int>(nslConfig.hdrOpt);
-        cfg.int_0 = nslConfig.integrationTime3D[0];
-        cfg.int_1 = nslConfig.integrationTime3D[1];
-        cfg.int_2 = nslConfig.integrationTime3D[2];
-        cfg.int_3 = nslConfig.integrationTime3D[3];
-        cfg.int_gr = nslConfig.integrationTimeGrayScale;
-        cfg.min_amplitude0 = nslConfig.minAmplitude[0];
-        cfg.min_amplitude1 = nslConfig.minAmplitude[1];
-        cfg.min_amplitude2 = nslConfig.minAmplitude[2];
-        cfg.min_amplitude3 = nslConfig.minAmplitude[3];
-        cfg.modulation_frequency = static_cast<int>(nslConfig.mod_frequencyOpt);
-        cfg.modulation_channel = static_cast<int>(nslConfig.mod_channelOpt);
-        cfg.roi_left_x = nslConfig.roiXMin;
-        cfg.roi_top_y = nslConfig.roiYMin;
-        cfg.roi_right_x = nslConfig.roiXMax;
+	cfg.dev_name = viewerParam.devName;
+	cfg.frame_id = viewerParam.frame_id;
+	cfg.max_distance = viewerParam.maxDistance;
+	cfg.pointcloud_edge = viewerParam.pointCloudEdgeThreshold;
+	cfg.image_type = viewerParam.imageType;
+	cfg.transform_angleV = viewerParam.lidarAngleV;
+	cfg.transform_angleH = viewerParam.lidarAngleH;
+
+	if (nsl_handle >= 0)
+	{
+		ROS_INFO("Successfully connected. Reading settings from the device.");
+		cfg.hdr_mode = static_cast<int>(nslConfig.hdrOpt);
+		cfg.int_0 = nslConfig.integrationTime3D[0];
+		cfg.int_1 = nslConfig.integrationTime3D[1];
+		cfg.int_2 = nslConfig.integrationTime3D[2];
+		cfg.int_3 = nslConfig.integrationTime3D[3];
+		cfg.int_gr = nslConfig.integrationTimeGrayScale;
+		cfg.min_amplitude0 = nslConfig.minAmplitude[0];
+		cfg.min_amplitude1 = nslConfig.minAmplitude[1];
+		cfg.min_amplitude2 = nslConfig.minAmplitude[2];
+		cfg.min_amplitude3 = nslConfig.minAmplitude[3];
+		cfg.modulation_frequency = static_cast<int>(nslConfig.mod_frequencyOpt);
+		cfg.modulation_channel = static_cast<int>(nslConfig.mod_channelOpt);
+		cfg.roi_left_x = nslConfig.roiXMin;
+		cfg.roi_top_y = nslConfig.roiYMin;
+		cfg.roi_right_x = nslConfig.roiXMax;
 		cfg.roi_bottom_y = nslConfig.roiYMax;
-        cfg.median_filter = (nslConfig.medianOpt == NslOption::FUNCTION_OPTIONS::FUNC_ON);
-        cfg.gaussian_filter = (nslConfig.gaussOpt == NslOption::FUNCTION_OPTIONS::FUNC_ON);
-        cfg.temporal_filter_factor = std::max(0, std::min(1000, nslConfig.temporalFactorValue)) / 1000.0;
-        cfg.temporal_filter_threshold = nslConfig.temporalThresholdValue;
-        cfg.edge_filter_threshold = nslConfig.edgeThresholdValue;
-        cfg.interference_detection_limit = nslConfig.interferenceDetectionLimitValue;
-        cfg.use_last_value = (nslConfig.interferenceDetectionLastValueOpt == NslOption::FUNCTION_OPTIONS::FUNC_ON);
-    }
-    else
-    {
-        ROS_WARN("Failed to connect to the device. Falling back to settings from lidar_params.yaml");
-		viewerParam.devName = cfg.dev_name;
-		viewerParam.frame_id = cfg.frame_id;
-		viewerParam.maxDistance = cfg.max_distance;
-		viewerParam.pointCloudEdgeThreshold = cfg.pointcloud_edge;
-		viewerParam.imageType = cfg.image_type;
-		viewerParam.lidarAngleV = cfg.transform_angleV;
-		viewerParam.lidarAngleH = cfg.transform_angleH;
-		viewerParam.cvShow = cfg.cv_show;
-		viewerParam.grayScale = cfg.grayScale;
-    }   
+		cfg.median_filter = (nslConfig.medianOpt == NslOption::FUNCTION_OPTIONS::FUNC_ON);
+		cfg.gaussian_filter = (nslConfig.gaussOpt == NslOption::FUNCTION_OPTIONS::FUNC_ON);
+		cfg.temporal_filter_factor = std::max(0, std::min(1000, nslConfig.temporalFactorValue)) / 1000.0;
+		cfg.temporal_filter_threshold = nslConfig.temporalThresholdValue;
+		cfg.edge_filter_threshold = nslConfig.edgeThresholdValue;
+		cfg.interference_detection_limit = nslConfig.interferenceDetectionLimitValue;
+		cfg.use_last_value = (nslConfig.interferenceDetectionLastValueOpt == NslOption::FUNCTION_OPTIONS::FUNC_ON);
+	}
+	else
+	{
+		ROS_WARN("Failed to connect to the device. Falling back to settings from lidar_params.yaml");
+	}   
 
-    setWinName();
-    viewerParam.saveParam = false;
-    reconfigure = false;
+	setWinName();
 
+	if (dr_server_) { 
+		dr_server_->updateConfig(cfg);
+	}
 
-    if (dr_server_) { 
-        dr_server_->updateConfig(cfg);
-    }
-    
-    ROS_INFO("end initialise()\n");
+	ROS_INFO("end initialise()\n");
 }
 
 void roboscanPublisher::startStreaming()
@@ -762,9 +760,9 @@ void roboscanPublisher::getMouseEvent( int &mouse_xpos, int &mouse_ypos )
 
 int main(int argc, char ** argv)
 {
-  ros::init(argc, argv, "roboscan_publish_node");
-  nanosys::roboscanPublisher rp;
-  rp.initialise();
-  ros::spin();
-  return 0;
+	ros::init(argc, argv, "roboscan_publish_node");
+	nanosys::roboscanPublisher rp;
+	rp.initialise();
+	ros::spin();
+	return 0;
 }
