@@ -139,6 +139,12 @@ void roboscanPublisher::dynamicReconfigureCallback(roboscan_nsl2206::RoboscanNSL
         viewerParam.cvShow = config.cv_show;
         viewerParam.changedCvShow = true; 
     }
+
+	if (viewerParam.grayScale != config.grayScale )
+	{
+		viewerParam.grayScale = config.grayScale;
+	}
+	
     if (viewerParam.devName != config.dev_name) {
         ROS_INFO("Dev name changed from %s to %s", viewerParam.devName.c_str(), config.dev_name.c_str());
         viewerParam.devName     = config.dev_name;
@@ -247,6 +253,7 @@ void roboscanPublisher::renewParameter()
 	
     cfg_for_gui.dev_name = viewerParam.devName;
     cfg_for_gui.cv_show = viewerParam.cvShow;
+    cfg_for_gui.grayScale = viewerParam.grayScale;
     cfg_for_gui.frame_id = viewerParam.frame_id;
     cfg_for_gui.image_type = viewerParam.imageType;
     cfg_for_gui.transform_angleV = viewerParam.lidarAngleV;
@@ -286,6 +293,7 @@ void roboscanPublisher::renewParameter()
 	
     nh_.setParam("dev_name",               viewerParam.devName);
     nh_.setParam("cv_show",               viewerParam.cvShow);
+    nh_.setParam("grayScale",               viewerParam.grayScale);
     nh_.setParam("frame_id",              viewerParam.frame_id);
 
     nh_.setParam("image_type",            viewerParam.imageType);
@@ -363,6 +371,7 @@ void roboscanPublisher::setReconfigure()
 			nsl_set3DFilter(nsl_handle, viewerParam.pointCloudEdgeThreshold);
 			nsl_setModulation(nsl_handle, nslConfig.mod_frequencyOpt, nslConfig.mod_channelOpt);
 			nsl_setRoi(nsl_handle, nslConfig.roiXMin, nslConfig.roiYMin, nslConfig.roiXMax, nslConfig.roiYMax);
+			nsl_setColorRange(viewerParam.maxDistance, MAX_GRAYSCALE_VALUE, viewerParam.grayScale ? NslOption::FUNCTION_OPTIONS::FUNC_ON : NslOption::FUNCTION_OPTIONS::FUNC_OFF);
 			
 			nsl_saveConfiguration(nsl_handle);
 			
@@ -424,6 +433,7 @@ void roboscanPublisher::initialise()
 		nsl_set3DFilter(nsl_handle, viewerParam.pointCloudEdgeThreshold);
 		nsl_setModulation(nsl_handle, nslConfig.mod_frequencyOpt, nslConfig.mod_channelOpt);
 		nsl_setRoi(nsl_handle, nslConfig.roiXMin, nslConfig.roiYMin, nslConfig.roiXMax, nslConfig.roiYMax);
+		nsl_setColorRange(viewerParam.maxDistance, MAX_GRAYSCALE_VALUE, NslOption::FUNCTION_OPTIONS::FUNC_OFF);
 		
         cfg.hdr_mode = static_cast<int>(nslConfig.hdrOpt);
         cfg.int_0 = nslConfig.integrationTime3D[0];
@@ -462,6 +472,7 @@ void roboscanPublisher::initialise()
 		viewerParam.lidarAngleV = cfg.transform_angleV;
 		viewerParam.lidarAngleH = cfg.transform_angleH;
 		viewerParam.cvShow = cfg.cv_show;
+		viewerParam.grayScale = cfg.grayScale;
     }   
 
     setWinName();
@@ -482,7 +493,6 @@ void roboscanPublisher::startStreaming()
 		nsl_streamingOn(nsl_handle, OPERATION_MODE_OPTIONS::DISTANCE_MODE);
 	}
 	else if( viewerParam.imageType == static_cast<int>(OPERATION_MODE_OPTIONS::DISTANCE_AMPLITUDE_MODE)){
-		nsl_setColorRange(viewerParam.maxDistance, MAX_GRAYSCALE_VALUE, NslOption::FUNCTION_OPTIONS::FUNC_OFF);
 		nsl_streamingOn(nsl_handle, OPERATION_MODE_OPTIONS::DISTANCE_AMPLITUDE_MODE);
 	}
 	else{

@@ -49,6 +49,7 @@ namespace nanosys {
 		double lidarAngleH;
 
 		bool cvShow;
+		bool grayScale;
 		bool changedCvShow;
 		bool changedImageType;
 		bool changedIpInfo;
