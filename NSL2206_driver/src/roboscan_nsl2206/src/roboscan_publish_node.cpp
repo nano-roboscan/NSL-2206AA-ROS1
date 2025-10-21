@@ -105,7 +105,7 @@ void roboscanPublisher::threadCallback()
             setReconfigure();
         }   
 
-		if( nsl_getPointCloudData(nsl_handle, latestFrame.get()) == NSL_ERROR_TYPE::NSL_SUCCESS )
+		if( nsl_getPointCloudData(nsl_handle, latestFrame.get(), 0) == NSL_ERROR_TYPE::NSL_SUCCESS )
 		{
 			frameCount++;			
 			publishFrame(latestFrame.get());
